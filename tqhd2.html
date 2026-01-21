@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>提前还贷计算器</title>
+<script src="//cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css">
+</head>
+<body>
+
+<div id="app" class="container mt-4">
+
+  <h4>房贷提前还贷计算器</h4>
+
+  <!-- 原始贷款输入 -->
+  <div class="form-group">
+    <label>贷款总额（元）</label>
+    <input type="number" class="form-control" v-model.number="loanAmount">
+  </div>
+
+  <div class="form-group">
+    <label>贷款年利率（%）</label>
+    <input type="number" class="form-control" v-model.number="annualRate" step="0.01">
+  </div>
+
+  <div class="form-group">
+    <label>贷款期限（年）</label>
+    <input type="number" class="form-control" v-model.number="loanYears">
+  </div>
+
+  <!-- 已还期数 -->
+  <div class="form-group">
+    <label>已还期数（月）</label>
+    <input type="number" class="form-control" v-model.number="paidMonths">
+  </div>
+
+  <!-- 提前还贷设置 -->
+  <div class="form-group">
+    <label>提前还贷金额（元）</label>
+    <input type="number" class="form-control" v-model.number="prepayAmount">
+  </div>
+
+  <div class="form-group">
+    <label>选择处理方式</label>
+    <select class="form-control" v-model="repayStyle">
+      <option value="reducePayment">减少月供（期限不变）</option>
+      <option value="reducePeriods">缩短期限（月供不变）</option>
+    </select>
+  </div>
+
+  <button class="btn btn-primary" @click="compute()">计算</button>
+
+  <!-- 结果展示 -->
+  <div class="mt-4">
+    <h5>计算结果</h5>
+
+    <p>📌 当前月供：<strong>{{ origMonthlyPayment }}</strong> 元</p>
+    <p>📌 剩余本金（提前还贷前）：<strong>{{ remainingPrincipal }}</strong> 元</p>
+    
+    <div v-if="repayStyle=='reducePayment'">
+      <p>📌 提前还贷后新月供：<strong>{{ newMonthlyPayment }}</strong> 元</p>
+    </div>
+
+    <div v-if="repayStyle=='reducePeriods'">
+      <p>📌 提前还贷后剩余期数：<strong>{{ newRemainMonths }}</strong> 月</p>
+    </div>
+
+    <p>💡 节省利息（粗略估计）：<strong>{{ savedInterest }}</strong> 元</p>
+  </div>
+
+</div>
+
+<script>
+new Vue({
+  el: '#app',
+  data: {
+    loanAmount: 1000000,
+    annualRate: 4.9,
+    loanYears: 30,
+    paidMonths: 60,
+    prepayAmount: 200000,
+    repayStyle: 'reducePayment',
+
+    origMonthlyPayment: 0,
+    remainingPrincipal: 0,
+    newMonthlyPayment: 0,
+    newRemainMonths: 0,
+    savedInterest: 0,
+  },
+  methods: {
+    compute() {
+      let P = Number(this.loanAmount);
+      let i = Number(this.annualRate)/100/12;
+      let n = Number(this.loanYears)*12;
+      let r = Number(this.paidMonths);
+
+      // 原始月供
+      let M = P * (i * Math.pow(1+i,n)) / (Math.pow(1+i,n) - 1);
+
+      // 剩余本金
+      let RemainP = P * ( Math.pow(1+i,n) - Math.pow(1+i,r) ) / (Math.pow(1+i,n) - 1);
+
+      // 扣除提前还款
+      let newPrincipal = Math.max(0, RemainP - this.prepayAmount);
+
+      // 更新结果
+      this.origMonthlyPayment = M.toFixed(2);
+      this.remainingPrincipal = RemainP.toFixed(2);
+
+      if (this.repayStyle === 'reducePayment') {
+        // 期限不变，月供减少
+        let leftMonths = n - r;
+        let newM = newPrincipal * (i * Math.pow(1+i,leftMonths)) / (Math.pow(1+i,leftMonths) - 1);
+        this.newMonthlyPayment = newM.toFixed(2);
+
+        // 利息节省（粗略）
+        this.savedInterest = (M - newM) * leftMonths.toFixed(2);
+
+      } else {
+        // 月供不变，缩短期限
+        let leftMonths = n - r;
+        let fixedM = M;
+        let balance = newPrincipal;
+        let monthsCount = 0;
+        while (balance > 0 && monthsCount < leftMonths) {
+          let interest = balance * i;
+          let principalPart = fixedM - interest;
+          balance = balance - principalPart;
+          monthsCount++;
+        }
+        this.newRemainMonths = monthsCount;
+        this.newMonthlyPayment = fixedM.toFixed(2);
+        this.savedInterest = ((leftMonths - monthsCount) * fixedM).toFixed(2);
+      }
+    }
+  }
+});
+</script>
+
+</body>
+</html>
