@@ -142,16 +142,21 @@ computed: {
 
     actualMonthlyOut() {
         return Math.max(0, this.newMonthly - this.housingFund);
+    },
+     // ⭐ 新增
+    assetBase() {
+        return Math.max(0, this.loanPrincipal - this.prepayAmount);
     }
 },
 
 watch: {
 
-    loanPrincipal(val) {
+    assetBase(val) {
         this.assetPrincipal = val;
         this.recalcIncome();
         this.calculateAsset();
     },
+
 
     actualMonthlyOut() {
         this.recalcIncome();
