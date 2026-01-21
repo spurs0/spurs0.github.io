@@ -8,26 +8,18 @@
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css">
 
 <style>
-body {
-    padding: 20px;
-}
-.card {
-    border-radius: 8px;
-}
-.result {
-    background: #f8f9fa;
-    padding: 12px;
-    border-radius: 6px;
-}
+body { padding: 20px; }
+.card { border-radius: 8px; }
+.result { background: #f8f9fa; padding: 12px; border-radius: 6px; }
 </style>
 </head>
 <body>
 
-<div id="app" class="container-fluid">
+<div id="app" class="container">
 
 <div class="row">
 
-<!-- ================= 左侧：提前还贷 ================= -->
+<!-- ========== 左侧：提前还贷 ========== -->
 <div class="col-md-6">
 <div class="card p-3">
 
@@ -59,14 +51,16 @@ body {
 </div>
 
 <div class="result mt-3">
-    <p>📌 当前月供（银行）： <b>{{ monthlyPayment.toFixed(2) }}</b> 元</p>
-    <p>🏦 公积金抵扣后月供： <b>{{ actualMonthlyOut.toFixed(2) }}</b> 元</p>
+    <p>📌 当前月供：<b>{{ currentMonthly.toFixed(2) }}</b> 元</p>
+    <p>📌 提前还贷后月供：<b>{{ newMonthly.toFixed(2) }}</b> 元</p>
+    <p>📉 月供减少：<b>{{ (currentMonthly - newMonthly).toFixed(2) }}</b> 元</p>
+    <p>🏦 扣公积金后实际支出：<b>{{ actualMonthlyOut.toFixed(2) }}</b> 元</p>
 </div>
 
 </div>
 </div>
 
-<!-- ================= 右侧：资产增长 ================= -->
+<!-- ========== 右侧：资产增长 ========== -->
 <div class="col-md-6">
 <div class="card p-3">
 
@@ -83,8 +77,10 @@ body {
 </div>
 
 <div class="form-group">
-    <label>每月可结余收入（自动计算）</label>
-    <input type="number" class="form-control" :value="monthlyIncome.toFixed(2)" disabled>
+    <label>每月可结余收入（可手动修正）</label>
+    <input type="number" class="form-control"
+           v-model.number="monthlyIncome"
+           @input="incomeManualOverride = true">
 </div>
 
 <div class="form-group">
@@ -108,19 +104,18 @@ body {
 new Vue({
 el: '#app',
 data: {
-    // 左侧 - 房贷
+    // 左侧
     loanPrincipal: 350000,
     loanMonths: 240,
     loanRate: 3.1,
     prepayAmount: 0,
     housingFund: 616,
 
-    monthlyPayment: 0,
-    actualMonthlyOut: 0,
-
-    // 右侧 - 资产
+    // 右侧
     depositRate: 2.0,
     assetMonths: 60,
+    monthlyIncome: 0,
+    incomeManualOverride: false,
 
     finalAsset: 0,
     totalIncome: 0,
@@ -129,9 +124,9 @@ data: {
 
 computed: {
 
-    // 当前月供（等额本息）
-    monthlyPayment() {
-        const P = Math.max(0, this.loanPrincipal - this.prepayAmount);
+    // 当前月供（未提前还）
+    currentMonthly() {
+        const P = Math.max(0, this.loanPrincipal);
         const n = Math.max(1, this.loanMonths);
         const i = this.loanRate / 100 / 12;
         if (P <= 0) return 0;
@@ -139,19 +134,32 @@ computed: {
         return P * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
     },
 
-    // 扣公积金后的真实支出
-    actualMonthlyOut() {
-        return Math.max(0, this.monthlyPayment - this.housingFund);
+    // 提前还贷后月供
+    newMonthly() {
+        const newP = Math.max(0, this.loanPrincipal - this.prepayAmount);
+        const n = Math.max(1, this.loanMonths);
+        const i = this.loanRate / 100 / 12;
+        if (newP <= 0) return 0;
+        if (i === 0) return newP / n;
+        return newP * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
     },
 
-    // 每月可结余收入 = 3000 - 实际月供
-    monthlyIncome() {
-        return 3000 - this.actualMonthlyOut;
+    // 实际现金流支出
+    actualMonthlyOut() {
+        return Math.max(0, this.newMonthly - this.housingFund);
     }
-
 },
 
 watch: {
+
+    // 自动给右侧默认收入
+    actualMonthlyOut() {
+        if (!this.incomeManualOverride) {
+            this.monthlyIncome = Number((3000 - this.actualMonthlyOut).toFixed(2));
+        }
+        this.calculateAsset();
+    },
+
     loanPrincipal: 'calculateAsset',
     depositRate: 'calculateAsset',
     assetMonths: 'calculateAsset',
@@ -159,12 +167,12 @@ watch: {
 },
 
 mounted() {
+    this.monthlyIncome = Number((3000 - this.actualMonthlyOut).toFixed(2));
     this.calculateAsset();
 },
 
 methods: {
 
-    // 资产增长计算
     calculateAsset() {
         let balance = Number(this.loanPrincipal) || 0;
         let income = Number(this.monthlyIncome) || 0;
@@ -175,11 +183,9 @@ methods: {
         let totalInterest = 0;
 
         for (let i = 0; i < months; i++) {
-            // 每月结余存入
             balance += income;
             totalIncome += income;
 
-            // 计息
             if (balance > 0 && rate > 0) {
                 const interest = balance * rate;
                 balance += interest;
@@ -188,13 +194,4 @@ methods: {
         }
 
         this.finalAsset = Number(balance.toFixed(2));
-        this.totalIncome = Number(totalIncome.toFixed(2));
-        this.totalInterest = Number(totalInterest.toFixed(2));
-    }
-
-}
-});
-</script>
-
-</body>
-</html>
+        this.totalIncome = Number(totalIncome.to
