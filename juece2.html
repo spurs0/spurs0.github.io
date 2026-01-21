@@ -2,75 +2,73 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>提前还贷 + 剩余资产联动计算器</title>
+<title>房贷 + 资产联动计算器</title>
 
 <script src="//cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
-<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css">
 
 <style>
-body { background:#f6f6f6; }
-.container { max-width: 980px; }
-.card { border-radius: 10px; }
-.result { background:#fafafa; padding:10px; border-radius:6px; margin-top:10px; }
+body { padding: 20px; }
+.card { border-radius: 8px; }
+.result { background: #f8f9fa; padding: 12px; border-radius: 6px; }
 </style>
 </head>
-
 <body>
-<div id="app" class="container mt-4">
 
-<h4 class="text-center mb-3">提前还贷 + 剩余资产联动计算器</h4>
+<div id="app" class="container">
 
 <div class="row">
 
-<!-- 左侧 -->
-<div class="col-md-6 mb-3">
+<!-- ========== 左侧 ========== -->
+<div class="col-md-6">
 <div class="card p-3">
 
-<h5>提前还贷计算</h5>
+<h5>🏠 提前还贷计算器</h5>
 
 <div class="form-group">
-<label>剩余贷款本金</label>
+<label>剩余贷款本金（元）</label>
 <input type="number" class="form-control" v-model.number="loanPrincipal">
 </div>
 
 <div class="form-group">
-<label>贷款年利率 (%)</label>
+<label>剩余期数（月）</label>
+<input type="number" class="form-control" v-model.number="loanMonths">
+</div>
+
+<div class="form-group">
+<label>年利率 (%)</label>
 <input type="number" class="form-control" v-model.number="loanRate" step="0.01">
 </div>
 
 <div class="form-group">
-<label>剩余期数 (月)</label>
-<input type="number" class="form-control" v-model.number="months">
-</div>
-
-<div class="form-group">
-<label>提前还款金额</label>
+<label>提前还款金额（元）</label>
 <input type="number" class="form-control" v-model.number="prepayAmount">
 </div>
 
 <div class="form-group">
-<label>公积金抵扣</label>
+<label>公积金每月抵扣（元）</label>
 <input type="number" class="form-control" v-model.number="housingFund">
 </div>
 
-<div class="result">
-<div>当前月供：<b>{{ currentMonthly.toFixed(2) }}</b></div>
-<div>提前还款后月供：<b>{{ newMonthly.toFixed(2) }}</b></div>
-<div>扣除公积金后的实际月供：<b>{{ actualMonthlyOut.toFixed(2) }}</b></div>
+<div class="result mt-3">
+<p>📌 当前月供：<b>{{ currentMonthly.toFixed(2) }}</b> 元</p>
+<p>📌 提前还贷后月供：<b>{{ newMonthly.toFixed(2) }}</b> 元</p>
+<p>📉 月供减少：<b>{{ (currentMonthly - newMonthly).toFixed(2) }}</b> 元</p>
+<p>🏦 扣公积金后实际支出：<b>{{ actualMonthlyOut.toFixed(2) }}</b> 元</p>
 </div>
 
 </div>
 </div>
 
-<!-- 右侧 -->
-<div class="col-md-6 mb-3">
+<!-- ========== 右侧 ========== -->
+<div class="col-md-6">
 <div class="card p-3">
 
-<h5>资产增长模拟</h5>
+<h5>📈 剩余资产增长计算器</h5>
 
 <div class="form-group">
-<label>初始资产（自动联动）</label>
-<input type="number" class="form-control" :value="assetBase.toFixed(2)" disabled>
+<label>初始资产（自动同步）</label>
+<input type="number" class="form-control" v-model.number="assetPrincipal" disabled>
 </div>
 
 <div class="form-group">
@@ -78,21 +76,26 @@ body { background:#f6f6f6; }
 <input type="number" class="form-control" v-model.number="depositRate" step="0.01">
 </div>
 
-<!-- 新增 -->
 <div class="form-group">
 <label>每月收入（例：工资）</label>
-<input type="number" class="form-control" v-model.number="monthlyIncome">
+<input type="number" class="form-control" v-model.number="monthlySalary">
 </div>
 
-<!-- 修改 -->
 <div class="form-group">
 <label>每月支出（自动计算）</label>
-<input type="number" class="form-control" :value="monthlyBalance.toFixed(2)" disabled>
+<input type="number" class="form-control" v-model.number="monthlyIncome" disabled>
 </div>
 
-<div class="result">
-<div>{{ months }}个月之后，资产总额为：</div>
-<div style="font-size:18px"><b>{{ finalAsset.toFixed(2) }}</b></div>
+<div class="form-group">
+<label>计算月数</label>
+<input type="number" class="form-control" v-model.number="assetMonths">
+</div>
+
+<div class="result mt-3">
+<p>💰 {{ assetMonths }}个月之后，资产总额为： 
+   <b>{{ finalAsset.toFixed(2) }}</b> 元</p>
+<p>📥 累计净收入： {{ totalIncome.toFixed(2) }} 元</p>
+<p>📈 累计利息： {{ totalInterest.toFixed(2) }} 元</p>
 </div>
 
 </div>
@@ -103,72 +106,119 @@ body { background:#f6f6f6; }
 
 <script>
 new Vue({
-el:"#app",
+el: '#app',
+data: {
+    // ===== 左侧默认值 =====
+    loanPrincipal: 325000,
+    loanMonths: 175,
+    loanRate: 2.6,
+    prepayAmount: 0,
+    housingFund: 614,
 
-data:{
-    loanPrincipal:325000,
-    loanRate:3.1,
-    months:60,
-    prepayAmount:50000,
-    housingFund:616,
+    // ===== 右侧 =====
+    depositRate: 2.0,
+    assetMonths: 60,
 
-    depositRate:2.0,
-    monthlyIncome:0,
+    assetPrincipal: 325000,
 
-    finalAsset:0
+    monthlySalary: 0,     // 每月收入
+    monthlyIncome: 0,     // 每月支出（自动算）
+
+    finalAsset: 0,
+    totalIncome: 0,
+    totalInterest: 0
 },
 
-computed:{
+computed: {
 
-    monthlyLoanRate(){
-        return this.loanRate/100/12;
+    currentMonthly() {
+        const P = this.loanPrincipal;
+        const n = this.loanMonths;
+        const i = this.loanRate / 100 / 12;
+        if (P <= 0 || n <= 0) return 0;
+        if (i === 0) return P / n;
+        return P * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
     },
 
-    currentMonthly(){
-        if(this.months<=0) return 0;
-        let r=this.monthlyLoanRate,n=this.months,p=this.loanPrincipal;
-        return p*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+    newMonthly() {
+        const P = Math.max(0, this.loanPrincipal - this.prepayAmount);
+        const n = this.loanMonths;
+        const i = this.loanRate / 100 / 12;
+        if (P <= 0 || n <= 0) return 0;
+        if (i === 0) return P / n;
+        return P * (i * Math.pow(1 + i, n)) / (Math.pow(1 + i, n) - 1);
     },
 
-    newMonthly(){
-        let remain=Math.max(0,this.loanPrincipal-this.prepayAmount);
-        if(remain===0||this.months<=0) return 0;
-        let r=this.monthlyLoanRate,n=this.months;
-        return remain*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);
+    actualMonthlyOut() {
+        return Math.max(0, this.newMonthly - this.housingFund);
     },
 
-    actualMonthlyOut(){
-        return Math.max(0,this.newMonthly-this.housingFund);
-    },
-
-    assetBase(){
-        return Math.max(0,this.loanPrincipal-this.prepayAmount);
-    },
-
-    // ✅ 修改后的现金流逻辑
-    monthlyBalance(){
-        return this.monthlyIncome - this.actualMonthlyOut;
+    // 初始资产自动同步
+    assetBase() {
+        return Math.max(0, this.loanPrincipal - this.prepayAmount);
     }
 },
 
-watch:{
-    assetBase:{ immediate:true, handler(){ this.calculateAsset(); }},
-    monthlyBalance(){ this.calculateAsset(); },
-    depositRate(){ this.calculateAsset(); },
-    months(){ this.calculateAsset(); }
+watch: {
+
+    assetBase(val) {
+        this.assetPrincipal = val;
+        this.recalcIncome();
+        this.calculateAsset();
+    },
+
+    actualMonthlyOut() {
+        this.recalcIncome();
+        this.calculateAsset();
+    },
+
+    monthlySalary() {
+        this.recalcIncome();
+        this.calculateAsset();
+    },
+
+    depositRate: 'calculateAsset',
+    assetMonths: 'calculateAsset'
 },
 
-methods:{
-    calculateAsset(){
-        let amount=this.assetBase;
-        let r=this.depositRate/100/12;
+mounted() {
+    this.assetPrincipal = this.loanPrincipal;
+    this.recalcIncome();
+    this.calculateAsset();
+},
 
-        for(let i=0;i<this.months;i++){
-            amount+=this.monthlyBalance;
-            amount*=1+r;
+methods: {
+
+    // 每月支出 = 每月收入 - 扣公积金后实际支出
+    recalcIncome() {
+        this.monthlyIncome = Number(
+            (this.monthlySalary - this.actualMonthlyOut).toFixed(2)
+        );
+    },
+
+    calculateAsset() {
+        let balance = Number(this.assetPrincipal) || 0;
+        let income = Number(this.monthlyIncome) || 0;
+        let months = Number(this.assetMonths) || 0;
+        let rate = (Number(this.depositRate) || 0) / 100 / 12;
+
+        let totalIncome = 0;
+        let totalInterest = 0;
+
+        for (let i = 0; i < months; i++) {
+            balance += income;
+            totalIncome += income;
+
+            if (balance > 0 && rate > 0) {
+                const interest = balance * rate;
+                balance += interest;
+                totalInterest += interest;
+            }
         }
 
-        this.finalAsset=amount;
+        this.finalAsset = Number(balance.toFixed(2));
+        this.totalIncome = Number(totalIncome.toFixed(2));
+        this.totalInterest = Number(totalInterest.toFixed(2));
     }
 }
 });
